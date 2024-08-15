@@ -114,3 +114,10 @@ UpgradeLog*.XML
 *.ide-wal
 
 .vs/
+/CustomLineBreak/ArrowKeyFilter.cs
+/CustomLineBreak/DisplayWindowHelper.cs
+/CustomLineBreak.vs2012
+/CustomLineBreak.vs2013
+/CustomLineBreak.vs2012.sln
+/CustomLineBreak.vs2013.sln
+/command IDs.txt

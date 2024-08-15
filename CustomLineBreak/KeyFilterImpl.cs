@@ -326,16 +326,18 @@ namespace CustomLineBreak
 		public override int Exec(ref Guid pguidCmdGroup, uint nCmdID, uint nCmdexecopt, IntPtr pvaIn, IntPtr pvaOut)
 		{
 			ThreadHelper.ThrowIfNotOnUIThread();
-			if (TextView.TextSnapshot.ContentType.TypeName != "C/C++") {
-				return NextTarget.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
-			}
-			if (pguidCmdGroup == VSConstants.VSStd2K && nCmdID == (uint)VSConstants.VSStd2KCmdID.RETURN && canPerform()) {
+			string ContentTypeName = TextView.TextSnapshot.ContentType.TypeName;
+			bool isCpp = ContentTypeName == "C/C++"
+				|| ContentTypeName == "CSharp"
+				|| ContentTypeName == "code++.Java"
+				|| ContentTypeName == "JSON";
+			if (pguidCmdGroup == VSConstants.VSStd2K && nCmdID == (uint)VSConstants.VSStd2KCmdID.RETURN && isCpp && canPerform()) {
 				bool handled = handleReturn();
 				if (handled) return VSConstants.S_OK;
 				return NextTarget.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
 			}
 
-			if (pguidCmdGroup == VSConstants.VSStd2K && nCmdID == (uint)VSConstants.VSStd2KCmdID.TYPECHAR && canPerform()) {
+			if (pguidCmdGroup == VSConstants.VSStd2K && nCmdID == (uint)VSConstants.VSStd2KCmdID.TYPECHAR && isCpp && canPerform()) {
 				char typedChar = GetTypeChar(pvaIn);
 				if (typedChar == '}') {
 					handleTypeClosingBrace(typedChar);
@@ -367,7 +369,7 @@ namespace CustomLineBreak
 				return NextTarget.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
 			}
 
-			if (pguidCmdGroup == VSConstants.VSStd2K && nCmdID == (uint)VSConstants.VSStd2KCmdID.GOTOBRACE && canPerform()) {
+			if (pguidCmdGroup == VSConstants.VSStd2K && nCmdID == (uint)VSConstants.VSStd2KCmdID.GOTOBRACE && isCpp && canPerform()) {
 				bool handled = handleCtrlSquareBracket(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut, out int handlingResult);
 				if (handled) return handlingResult;
 				return NextTarget.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
@@ -513,23 +515,23 @@ namespace CustomLineBreak
 					textEdit.Delete(TextView.Selection.SelectedSpans[0]);
 				}
 				if (end > indentOriginLine.Start.Position) {
-					if (ConvertTabsToSpaces) {
-						string indent = new string(' ', IndentSize);
-						textEdit.Insert(pointEnd, "\n"
-							+ buf.GetText(new Span(indentOriginLine.Start.Position,
-							end - indentOriginLine.Start.Position)) + indent);
+					string indent;
+					if (ConvertTabsToSpaces || IndentSize % TabSize != 0) {
+						indent = new string(' ', IndentSize);
 					} else {
-						textEdit.Insert(pointEnd, "\n"
-							+ buf.GetText(new Span(indentOriginLine.Start.Position,
-							end - indentOriginLine.Start.Position)) + "\t");
+						indent = new string('\t', IndentSize / TabSize);
 					}
+					textEdit.Insert(pointEnd, "\n"
+						+ buf.GetText(new Span(indentOriginLine.Start.Position,
+						end - indentOriginLine.Start.Position)) + indent);
 				} else {
-					if (ConvertTabsToSpaces) {
-						string indent = new string(' ', IndentSize);
-						textEdit.Insert(pointEnd, "\n" + indent);
+					string indent;
+					if (ConvertTabsToSpaces || IndentSize % TabSize != 0) {
+						indent = new string(' ', IndentSize);
 					} else {
-						textEdit.Insert(pointEnd, "\n\t");
+						indent = new string('\t', IndentSize / TabSize);
 					}
+					textEdit.Insert(pointEnd, "\n" + indent);
 				}
 				textEdit.Apply();
 				if (!TextView.Selection.IsEmpty) {

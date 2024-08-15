@@ -1,6 +1,6 @@
 ﻿# CustomLineBreak
 
-Visual Studio 2022 Community Edition extension for working with C/C++ that overrides:
+Visual Studio 2022 Community Edition extension for working with C/C++/C#/Java/JSON that overrides:
 
 - Enter key behavior. Performs a smart indent in a hardcoded style. Prevents the editor from creating virtual space. Copies whitespace from the previous line without converting spaces to tabs or vice versa.
 - Typing a closing }. Aligns the typed } on the same indent as the opening {.
@@ -16,7 +16,7 @@ Visual Studio 2022 Community Edition extension for working with C/C++ that overr
 - Shift+Tab. Unindents the current selected lines. Unindents even those lines that are empty.
 - Ctrl+Shift+Left mouse click. Fixes an issue when of the word is right next to an operator, no whitespace inbetween, if the caret was at the start of that word and the word was selected prior to clicking on the operator, it would deselect the word and select only the operator.
 
-Works only with C/C++ files.  
+The enter key, closing } and Ctrl+] overrides only with C/C++/C#/Java/JSON files. Every other override works with any language.  
 This is created out of hatred for VS's built-in behavior that cannot be configured and out of desperation that they will never listen to the feedback and fix any of it.
 
 ## Installation
