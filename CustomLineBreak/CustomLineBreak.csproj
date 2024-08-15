@@ -1,0 +1,54 @@
+﻿<Project>
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+  <Import Project="$(BaseIntermediateOutputPath)*.nuget.g.props" Condition="'$(MSBuildProjectExtension)' == '.tmp_proj' OR $(MSBuildProjectName.EndsWith('wpftmp'))" />
+
+  <PropertyGroup>
+    <Product>CustomLineBreak</Product>
+    <RootNamespace>CustomLineBreak</RootNamespace>
+    <AssemblyName>CustomLineBreak</AssemblyName>
+    <Title>CustomLineBreak</Title>
+    <Description>Navigate through tabs-as-spaces as if they were actually tabs.</Description>
+    <Company>Jed Mao and Doug Krahmer</Company>
+    <Version>2.0.4.0</Version>
+    <AssemblyVersion>2.0.4.0</AssemblyVersion>
+    <FileVersion>2.0.4.0</FileVersion>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <TargetFramework>net472</TargetFramework>
+    <IsVsixProject>True</IsVsixProject>
+    <VsixOutputPath>$(ProjectDir)bin\$(Configuration)\$(TargetFramework)\</VsixOutputPath>
+    <GeneratePkgDefFile>false</GeneratePkgDefFile>
+    <NoWarn>CS0649,IDE0044</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="ArrowKeyFilter.cs" />
+    <Compile Remove="DisplayWindowHelper.cs" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Content Include="license.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.VisualStudio.Editor" Version="17.10.191" />
+    <PackageReference Include="Microsoft.VisualStudio.Language.Intellisense" Version="17.10.191" />
+    <PackageReference Include="Microsoft.VisualStudio.Package.LanguageService.15.0" Version="17.10.40170" />
+    <PackageReference Include="Microsoft.VisualStudio.Shell.15.0" Version="17.10.40170" />
+    <PackageReference Include="Microsoft.VisualStudio.Threading" Version="17.10.48" />
+  </ItemGroup>
+  
+  <Target Name="IncludePackageReferenceDependencies" AfterTargets="GetVsixSourceItems">
+    <ItemGroup>
+      <VSIXSourceItem Include="@(ReferencePath)" Condition="$([System.String]::new('%(Filename)').StartsWith('DiscUtils'))" />
+    </ItemGroup>
+  </Target>
+  
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+  <Import Project="$(BaseIntermediateOutputPath)*.nuget.g.targets" Condition="'$(MSBuildProjectExtension)' == '.tmp_proj' OR $(MSBuildProjectName.EndsWith('wpftmp'))" />
+  <ItemGroup>
+    <PackageReference Update="Microsoft.VisualStudio.SDK.EmbedInteropTypes" Version="15.0.36" />
+    <PackageReference Update="Microsoft.VSSDK.BuildTools" Version="17.11.414" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "CustomLineBreak": {
+      "commandName": "Executable",
+      "executablePath": "$(DevEnvDir)devenv.exe",
+      "commandLineArgs": "/rootSuffix Exp",
+      "nativeDebugging": false
+    }
+  }
+}
