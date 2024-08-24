@@ -97,7 +97,7 @@ namespace CustomLineBreak
 			        TextView.Caret.MoveTo(wordBounds.End);
     		        selBeforeDragStart = wordBounds.Start;
     		        selBeforeDragEnd = wordBounds.End;
-    		        selBeforeDragAnchor = wordBounds.End;
+    		        selBeforeDragAnchor = wordBounds.Start;
 			        return;
 			    }
 			    if (wordBounds.Start >= selectStart && wordBounds.End <= selectEnd) {

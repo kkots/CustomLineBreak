@@ -14,7 +14,8 @@ Visual Studio 2022 Community Edition extension for working with C/C++/C#/Java/JS
 - Ctrl+Backspace. Deletes until the start or end of previous word. Instead of always deleting until the start of previous word.
 - Tab. Indents the current selection if the selection is not empty (something is selected), even if the selection starts and ends on the same line. Indents even those lines that are empty.
 - Shift+Tab. Unindents the current selected lines. Unindents even those lines that are empty.
-- Ctrl+Shift+Left mouse click. Fixes an issue when of the word is right next to an operator, no whitespace inbetween, if the caret was at the start of that word and the word was selected prior to clicking on the operator, it would deselect the word and select only the operator.
+- Ctrl+Shift+Left mouse click. Can no longer shrink the selection compared to when the click started, only extend left or right. Shrinking is still possible during the click, as long as the mouse is being held, but only to the extent that was prior to clicking. Word boundaries changed to follow the same behavior as Ctrl+Left/Right arrow key, so contiguous whitespace can be selected separately from the word that follows after it for example.
+- Ctrl+Left mouse click. Had to be overriden to support Ctrl+Shift+Left mouse click. Almost no change in behavior compared to the built-in one.
 
 The enter key, closing } and Ctrl+] overrides only with C/C++/C#/Java/JSON files. Every other override works with any language.  
 This is created out of hatred for VS's built-in behavior that cannot be configured and out of desperation that they will never listen to the feedback and fix any of it.
