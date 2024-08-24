@@ -331,12 +331,14 @@ namespace CustomLineBreak
 				|| ContentTypeName == "CSharp"
 				|| ContentTypeName == "code++.Java"
 				|| ContentTypeName == "JSON";
+			// Enter key
 			if (pguidCmdGroup == VSConstants.VSStd2K && nCmdID == (uint)VSConstants.VSStd2KCmdID.RETURN && isCpp && canPerform()) {
 				bool handled = handleReturn();
 				if (handled) return VSConstants.S_OK;
 				return NextTarget.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
 			}
 
+            // Closing }
 			if (pguidCmdGroup == VSConstants.VSStd2K && nCmdID == (uint)VSConstants.VSStd2KCmdID.TYPECHAR && isCpp && canPerform()) {
 				char typedChar = GetTypeChar(pvaIn);
 				if (typedChar == '}') {
@@ -345,60 +347,70 @@ namespace CustomLineBreak
 				return NextTarget.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
 			}
 
+            // Ctrl+Left
 			if (pguidCmdGroup == VSConstants.VSStd2K && nCmdID == (uint)VSConstants.VSStd2KCmdID.WORDPREV && canPerform()) {
 				bool handled = handleCtrlLeft();
 				if (handled) return VSConstants.S_OK;
 				return NextTarget.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
 			}
 
+            // Shift+Ctrl+Left
 			if (pguidCmdGroup == VSConstants.VSStd2K && nCmdID == (uint)VSConstants.VSStd2KCmdID.WORDPREV_EXT && canPerform()) {
 				bool handled = handleCtrlShiftLeft();
 				if (handled) return VSConstants.S_OK;
 				return NextTarget.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
 			}
 
+            // Ctrl+Right
 			if (pguidCmdGroup == VSConstants.VSStd2K && nCmdID == (uint)VSConstants.VSStd2KCmdID.WORDNEXT && canPerform()) {
 				bool handled = handleCtrlRight();
 				if (handled) return VSConstants.S_OK;
 				return NextTarget.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
 			}
 
+            // Shift+Ctrl+Right
 			if (pguidCmdGroup == VSConstants.VSStd2K && nCmdID == (uint)VSConstants.VSStd2KCmdID.WORDNEXT_EXT && canPerform()) {
 				bool handled = handleCtrlShiftRight();
 				if (handled) return VSConstants.S_OK;
 				return NextTarget.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
 			}
 
+            // Ctrl+]
 			if (pguidCmdGroup == VSConstants.VSStd2K && nCmdID == (uint)VSConstants.VSStd2KCmdID.GOTOBRACE && isCpp && canPerform()) {
 				bool handled = handleCtrlSquareBracket(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut, out int handlingResult);
 				if (handled) return handlingResult;
 				return NextTarget.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
 			}
 
+            // Shift+Ctrl+]
 			if (pguidCmdGroup == VSConstants.VSStd2K && nCmdID == (uint)VSConstants.VSStd2KCmdID.GOTOBRACE_EXT && canPerform()) {
 				bool handled = handleCtrlShiftSquareBracket2(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut, out int handlingResult);
 				if (handled) return handlingResult;
 				return NextTarget.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
 			}
 
+            // Ctrl+Delete
 			if (pguidCmdGroup == VSConstants.VSStd2K && nCmdID == (uint)VSConstants.VSStd2KCmdID.DELETEWORDRIGHT && canPerform()) {
 				bool handled = handleCtrlDelete();
 				if (handled) return VSConstants.S_OK;
 				return NextTarget.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
 			}
 
+            // Ctrl+Backspace
 			if (pguidCmdGroup == VSConstants.VSStd2K && nCmdID == (uint)VSConstants.VSStd2KCmdID.DELETEWORDLEFT && canPerform()) {
 				bool handled = handleCtrlBackspace();
 				if (handled) return VSConstants.S_OK;
 				return NextTarget.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
 			}
 
+            // Tab
 			if (pguidCmdGroup == VSConstants.VSStd2K && nCmdID == (uint)VSConstants.VSStd2KCmdID.ECMD_TAB && canPerform()) {
 				bool handled = handleTab();
 				if (handled) return VSConstants.S_OK;
 				return NextTarget.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
 			}
 
+            // Shift+Tab
 			if (pguidCmdGroup == VSConstants.VSStd2K && nCmdID == (uint)VSConstants.VSStd2KCmdID.BACKTAB && canPerform()) {
 				bool handled = handleShiftTab();
 				if (handled) return VSConstants.S_OK;
@@ -582,6 +594,10 @@ namespace CustomLineBreak
 				pointEnd = TextView.Selection.ActivePoint.Position;
 			}
 			ITextSnapshotLine pointLine = point.GetContainingLine();
+			IClassificationType type = getClassOfChar(point);
+			if (type != null && type.IsOfType("comment")) {
+				return;
+			}
 
 			if(buf.GetText(pointLine.Extent).Substring(0,
 						point - pointLine.Extent.Start
@@ -621,322 +637,17 @@ namespace CustomLineBreak
 			TextView.Caret.EnsureVisible();
 			return;
 		}
-		private IList<Span> breakLineIntoSpans(SnapshotSpan section) {
-			IList<Span> spans = new List<Span>();
-			ITextSnapshot buf = section.Snapshot;
-			int newSpanStart = 0;
-			bool insideString = false;
-			char stringType = '\0';
-			bool lastCharWasBackslash = false;
-			int end = section.End;
-			for (int i = section.Start; i < end; ++i) {
-				char c = buf[i];
-				bool lastCharWasBackslashCurrent = lastCharWasBackslash;
-				lastCharWasBackslash = false;
-				if (char.IsLetterOrDigit(c) || c == '_') {
-					newSpanStart = i;
-					do {
-						++i;
-						if (i < end) c = buf[i];
-						else break;
-					} while (char.IsLetterOrDigit(c) || c == '_');
-					spans.Add(new Span(newSpanStart, i - newSpanStart));
-					--i;
-				} else if (char.IsWhiteSpace(c)) {
-					newSpanStart = i;
-					do {
-						++i;
-					} while (i < end && char.IsWhiteSpace(buf[i]));
-					spans.Add(new Span(newSpanStart, i - newSpanStart));
-					--i;
-				} else if (c == '\\') {
-					lastCharWasBackslash = true;
-					newSpanStart = i;
-					do {
-						++i;
-					} while (i < end && buf[i] == c);
-					spans.Add(new Span(newSpanStart, i - newSpanStart));
-					--i;
-				} else if (c == '<' || c == '>') {
-					if (i + 1 < end) {
-						char nextC = buf[i + 1];
-						if (nextC == '=' || c == '<' && nextC == '>') {
-							spans.Add(new Span(i, 2));
-							++i;
-							continue;
-						}
-						if (nextC == c) {
-							if (i + 2 < end) {
-								char nextNextC = buf[i + 2];
-								if (nextNextC == '=') {
-									spans.Add(new Span(i, 3));
-									i += 2;
-									continue;
-								}
-							}
-							newSpanStart = i;
-							++i;
-							do {
-								++i;
-							} while (i < end && buf[i] == c);
-							spans.Add(new Span(newSpanStart, i - newSpanStart));
-							--i;
-							continue;
-						}
-					}
-					spans.Add(new Span(i, 1));
-				} else if (c == '/') {
-					if (i + 1 < end) {
-						char nextC = buf[i + 1];
-						if (nextC == '/' || nextC == '*' || nextC == '=') {
-							spans.Add(new Span(i, 2));
-							++i;
-							continue;
-						}
-					}
-					newSpanStart = i;
-					do {
-						++i;
-					} while (i < end && buf[i] == c);
-					spans.Add(new Span(newSpanStart, i - newSpanStart));
-					--i;
-				} else if (c == '*') {
-					if (i + 1 < end) {
-						char nextC = buf[i + 1];
-						if (nextC == '/' || nextC == '=') {
-							spans.Add(new Span(i, 2));
-							++i;
-							continue;
-						}
-					}
-					newSpanStart = i;
-					do {
-						++i;
-					} while (i < end && buf[i] == c);
-					spans.Add(new Span(newSpanStart, i - newSpanStart));
-					--i;
-				} else if (c == '%'
-						|| c == '^'
-						|| c == '!'
-						|| c == '='
-						|| c == '~') {
-					if (i + 1 < end) {
-						char nextC = buf[i + 1];
-						if (nextC == '=') {
-							if (c == '=') {
-								newSpanStart = i;
-								++i;
-								do {
-									++i;
-								} while (i < end && buf[i] == c);
-								spans.Add(new Span(newSpanStart, i - newSpanStart));
-								--i;
-								continue;
-							}
-							spans.Add(new Span(i, 2));
-							++i;
-							continue;
-						}
-					}
-					if (c != '=') {
-						newSpanStart = i;
-						do {
-							++i;
-						} while (i < end && buf[i] == c);
-						spans.Add(new Span(newSpanStart, i - newSpanStart));
-						--i;
-						continue;
-					}
-					spans.Add(new Span(i, 1));
-				} else if (c == '|'
-						|| c == '&'
-						|| c == '+') {
-					if (i + 1 < end) {
-						char nextC = buf[i + 1];
-						if (nextC == c || nextC == '=') {
-							if (nextC == c) {
-								newSpanStart = i;
-								++i;
-								do {
-									++i;
-								} while (i < end && buf[i] == c);
-								spans.Add(new Span(newSpanStart, i - newSpanStart));
-								--i;
-								continue;
-							}
-							spans.Add(new Span(i, 2));
-							++i;
-							continue;
-						}
-					}
-					spans.Add(new Span(i, 1));
-				} else if (c == ':' || c == '#') {
-					if (i + 1 < end) {
-						char nextC = buf[i + 1];
-						if (nextC == c) {
-							newSpanStart = i;
-							++i;
-							do {
-								++i;
-							} while (i < end && buf[i] == c);
-							spans.Add(new Span(newSpanStart, i - newSpanStart));
-							--i;
-							continue;
-						}
-					}
-					spans.Add(new Span(i, 1));
-				} else if (c == '-') {
-					if (i + 1 < end) {
-						char nextC = buf[i + 1];
-						if (nextC == '-' || nextC == '=' || nextC == '>') {
-							if (nextC == '-') {
-								newSpanStart = i;
-								++i;
-								do {
-									++i;
-								} while (i < end && buf[i] == c);
-								spans.Add(new Span(newSpanStart, i - newSpanStart));
-								--i;
-								continue;
-							}
-							spans.Add(new Span(i, 2));
-							++i;
-							continue;
-						}
-					}
-					spans.Add(new Span(i, 1));
-				} else if (c == '"' || c == '\'') {
-					if (insideString) {
-						if (c != stringType) {
-							newSpanStart = i;
-							do {
-								++i;
-							} while (i < end && buf[i] == c);
-							spans.Add(new Span(newSpanStart, i - newSpanStart));
-							--i;
-							continue;
-						}
-						if (!lastCharWasBackslashCurrent) {
-							insideString = false;
-						}
-						newSpanStart = i;
-						do {
-							++i;
-						} while (i < end && buf[i] == c);
-						spans.Add(new Span(newSpanStart, i - newSpanStart));
-						--i;
-						continue;
-					}
-					newSpanStart = i;
-					do {
-						++i;
-					} while (i < end && buf[i] == c);
-					spans.Add(new Span(newSpanStart, i - newSpanStart));
-					--i;
-				} else {
-					newSpanStart = i;
-					do {
-						++i;
-					} while (i < end && buf[i] == c);
-					spans.Add(new Span(newSpanStart, i - newSpanStart));
-					--i;
-				}
-			}
-			return spans;
-		}
-		private SnapshotPoint findLeftWordBoundary(SnapshotPoint cursor) {
-			int pos = cursor.Position;
-			if (pos == 0) return cursor;
-			ITextSnapshot buf = cursor.Snapshot;
-			ITextSnapshotLine line = cursor.GetContainingLine();
-			if (cursor == line.Extent.Start) {
-				if (buf[pos - 1] == '\n' && pos > 1 && buf[pos - 2] == '\r') {
-					return cursor - 2;
-				}
-				return cursor - 1;
-			}
-			--pos;
-			char c = buf[pos];
-			bool whitespaceMode = char.IsWhiteSpace(c);
-			if (whitespaceMode) {
-				while (pos > 0) {
-					c = buf[pos - 1];
-					if (!(char.IsWhiteSpace(c) && c != '\n')) break;
-					--pos;
-				}
-				return new SnapshotPoint(buf, pos);
-			}
-			IList<Span> spans = breakLineIntoSpans(line.Extent);
-			if (spans.Count == 0) {
-				return cursor - 1;
-			}
-			int positionToSeek = cursor.Position;
-			for (int i = 0; i < spans.Count; ++i) {
-				Span span = spans[i];
-				if (span.Contains(positionToSeek)) {
-					int offset = positionToSeek - span.Start;
-					if (offset == 0) {
-						if (i == 0) {
-							return cursor - 1;
-						}
-						return cursor - spans[i - 1].Length;
-					}
-					return cursor - offset;
-				}
-			}
-			Span lastSpan = spans[spans.Count - 1];
-			if (positionToSeek == lastSpan.Start + lastSpan.Length) {
-				return cursor - lastSpan.Length;
-			}
-			return cursor - 1;
-		}
-		private SnapshotPoint findRightWordBoundary(SnapshotPoint cursor) {
-			int pos = cursor.Position;
-			ITextSnapshot buf = cursor.Snapshot;
-			if (pos >= buf.Length) return cursor;
-			ITextSnapshotLine line = cursor.GetContainingLine();
-			if (cursor == line.Extent.End) {
-				if (pos < buf.Length && buf[pos] == '\r' && pos + 1 < buf.Length && buf[pos + 1] == '\n') {
-					return cursor + 2;
-				}
-				return cursor + 1;
-			}
-			char c = buf[pos];
-			bool whitespaceMode = char.IsWhiteSpace(c);
-			++pos;
-			if (whitespaceMode) {
-				while (pos < buf.Length) {
-					c = buf[pos];
-					if (!(char.IsWhiteSpace(c) && c != '\r' && c != '\n')) break;
-					++pos;
-				}
-				return new SnapshotPoint(buf, pos);
-			}
-			IList<Span> spans = breakLineIntoSpans(line.Extent);
-			if (spans.Count == 0) {
-				return cursor + 1;
-			}
-			int positionToSeek = cursor.Position;
-			for (int i = 0; i < spans.Count; ++i) {
-				Span span = spans[i];
-				if (span.Contains(positionToSeek)) {
-					int offset = positionToSeek - span.Start;
-					return cursor + (span.Length - offset);
-				}
-			}
-			return cursor + 1;
-		}
 		private bool handleCtrlLeft() {
 			if (hasBoxSelection()) return false;
 			TextView.Selection.Clear();
-			SnapshotPoint newCaretPos = findLeftWordBoundary(TextView.Caret.Position.BufferPosition);
+			SnapshotPoint newCaretPos = WordBoundary.findLeftWordBoundary(TextView.Caret.Position.BufferPosition);
 			TextView.Caret.MoveTo(newCaretPos, PositionAffinity.Predecessor, true);
 			TextView.Caret.EnsureVisible();
 			return true;
 		}
 		private bool handleCtrlShiftLeft() {
 			if (hasBoxSelection()) return false;
-			SnapshotPoint newCaretPos = findLeftWordBoundary(TextView.Caret.Position.BufferPosition);
+			SnapshotPoint newCaretPos = WordBoundary.findLeftWordBoundary(TextView.Caret.Position.BufferPosition);
 			SnapshotPoint selectionAnchor = TextView.Selection.AnchorPoint.Position;
 			TextView.Caret.MoveTo(newCaretPos, PositionAffinity.Predecessor, true);
 			bool isReversed = newCaretPos < selectionAnchor;
@@ -951,14 +662,14 @@ namespace CustomLineBreak
 		private bool handleCtrlRight() {
 			if (hasBoxSelection()) return false;
 			TextView.Selection.Clear();
-			SnapshotPoint newCaretPos = findRightWordBoundary(TextView.Caret.Position.BufferPosition);
+			SnapshotPoint newCaretPos = WordBoundary.findRightWordBoundary(TextView.Caret.Position.BufferPosition);
 			TextView.Caret.MoveTo(newCaretPos, PositionAffinity.Predecessor, true);
 			TextView.Caret.EnsureVisible();
 			return true;
 		}
 		private bool handleCtrlShiftRight() {
 			if (hasBoxSelection()) return false;
-			SnapshotPoint newCaretPos = findRightWordBoundary(TextView.Caret.Position.BufferPosition);
+			SnapshotPoint newCaretPos = WordBoundary.findRightWordBoundary(TextView.Caret.Position.BufferPosition);
 			SnapshotPoint selectionAnchor = TextView.Selection.AnchorPoint.Position;
 			TextView.Caret.MoveTo(newCaretPos, PositionAffinity.Predecessor, true);
 			bool isReversed = newCaretPos < selectionAnchor;
@@ -1188,28 +899,24 @@ namespace CustomLineBreak
 			ITextSnapshot buf = TextView.TextSnapshot;
 			SnapshotPoint point;
 			SnapshotPoint pointEnd;
+			ITextEdit edit;
 			if (TextView.Selection.IsEmpty) {
 				point = TextView.Caret.Position.BufferPosition;
 				pointEnd = point;
-			} else if (TextView.Selection.IsReversed) {
-				point = TextView.Selection.ActivePoint.Position;
-				pointEnd = TextView.Selection.AnchorPoint.Position;
 			} else {
-				point = TextView.Selection.AnchorPoint.Position;
-				pointEnd = TextView.Selection.ActivePoint.Position;
+			    edit = TextView.TextBuffer.CreateEdit();
+				edit.Delete(TextView.Selection.SelectedSpans[0]);
+    			edit.Apply();
+				TextView.Selection.Clear();
+    			TextView.Caret.EnsureVisible();
+    			return true;
 			}
 			int pos = pointEnd.Position;
 			if (pos == buf.Length) return true;
-			SnapshotPoint positionAfterTheWord = findRightWordBoundary(pointEnd);
-			ITextEdit edit = TextView.TextBuffer.CreateEdit();
-			if (!TextView.Selection.IsEmpty) {
-				edit.Delete(TextView.Selection.SelectedSpans[0]);
-			}
+			SnapshotPoint positionAfterTheWord = WordBoundary.findRightWordBoundary(pointEnd);
+			edit = TextView.TextBuffer.CreateEdit();
 			edit.Delete(new Span(pos, positionAfterTheWord - pointEnd));
 			edit.Apply();
-			if (!TextView.Selection.IsEmpty) {
-				TextView.Selection.Clear();
-			}
 			TextView.Caret.EnsureVisible();
 			return true;
 		}
@@ -1218,48 +925,28 @@ namespace CustomLineBreak
 			ITextSnapshot buf = TextView.TextSnapshot;
 			SnapshotPoint point;
 			SnapshotPoint pointEnd;
+			ITextEdit edit;
 			if (TextView.Selection.IsEmpty) {
 				point = TextView.Caret.Position.BufferPosition;
 				pointEnd = point;
-			} else if (TextView.Selection.IsReversed) {
-				point = TextView.Selection.ActivePoint.Position;
-				pointEnd = TextView.Selection.AnchorPoint.Position;
 			} else {
-				point = TextView.Selection.AnchorPoint.Position;
-				pointEnd = TextView.Selection.ActivePoint.Position;
+			    edit = TextView.TextBuffer.CreateEdit();
+				edit.Delete(TextView.Selection.SelectedSpans[0]);
+    			edit.Apply();
+				TextView.Selection.Clear();
+    			TextView.Caret.EnsureVisible();
+    			return true;
 			}
 			int pos = point.Position;
 			if (pos == 0) return true;
-			SnapshotPoint prevWordStartOrThisWordStart = findLeftWordBoundary(point);
-			ITextEdit edit = TextView.TextBuffer.CreateEdit();
-			if (!TextView.Selection.IsEmpty) {
-				edit.Delete(TextView.Selection.SelectedSpans[0]);
-			}
+			SnapshotPoint prevWordStartOrThisWordStart = WordBoundary.findLeftWordBoundary(point);
+			edit = TextView.TextBuffer.CreateEdit();
 			edit.Delete(new Span(prevWordStartOrThisWordStart.Position, point - prevWordStartOrThisWordStart));
 			edit.Apply();
-			if (!TextView.Selection.IsEmpty) {
-				TextView.Selection.Clear();
-			}
 			TextView.Caret.EnsureVisible();
 			return true;
 		}
-		private bool handleTab() {
-			if (TextView.Selection.IsEmpty || noEditAccessOrHasBoxSelection()) return false;
-			VirtualSnapshotPoint selStart;
-			VirtualSnapshotPoint selEnd;
-			if (TextView.Selection.IsReversed) {
-				selStart = TextView.Selection.ActivePoint;
-				selEnd = TextView.Selection.AnchorPoint;
-			} else {
-				selEnd = TextView.Selection.ActivePoint;
-				selStart = TextView.Selection.AnchorPoint;
-			}
-			int lineStart = selStart.Position.GetContainingLineNumber();
-			int lineEnd = selEnd.Position.GetContainingLineNumber();
-			if (selEnd.Position.GetContainingLine().Start == selEnd.Position) {
-				--lineEnd;
-			}
-			if (lineEnd < lineStart) return false;
+		private string calculateIndent() {
 			string indent = "";
 			if (ConvertTabsToSpaces) {
 				indent = new string(' ', IndentSize);
@@ -1275,8 +962,39 @@ namespace CustomLineBreak
 					}
 				}
 			}
-			ITextEdit edit = TextView.TextBuffer.CreateEdit();
-			ITextSnapshot buf = TextView.TextSnapshot;
+			return indent;
+		}
+		private bool handleTab() {
+			if (noEditAccessOrHasBoxSelection()) return false;
+			string indent;
+			ITextEdit edit;
+			ITextSnapshot buf;
+			if (TextView.Selection.IsEmpty) {
+			    indent = calculateIndent();
+    			edit = TextView.TextBuffer.CreateEdit();
+    			buf = TextView.TextSnapshot;
+				edit.Insert(TextView.Caret.Position.BufferPosition, indent);
+    			edit.Apply();
+    			return true;
+			}
+			VirtualSnapshotPoint selStart;
+			VirtualSnapshotPoint selEnd;
+			if (TextView.Selection.IsReversed) {
+				selStart = TextView.Selection.ActivePoint;
+				selEnd = TextView.Selection.AnchorPoint;
+			} else {
+				selEnd = TextView.Selection.ActivePoint;
+				selStart = TextView.Selection.AnchorPoint;
+			}
+			int lineStart = selStart.Position.GetContainingLineNumber();
+			int lineEnd = selEnd.Position.GetContainingLineNumber();
+			if (selEnd.Position.GetContainingLine().Start == selEnd.Position) {
+				--lineEnd;
+			}
+			if (lineEnd < lineStart) return false;
+			indent = calculateIndent();
+			edit = TextView.TextBuffer.CreateEdit();
+			buf = TextView.TextSnapshot;
 			int caretLineNum = TextView.Caret.Position.BufferPosition.GetContainingLineNumber();
 			for (int i = lineStart; i <= lineEnd; ++i) {
 				ITextSnapshotLine line = buf.GetLineFromLineNumber(i);
@@ -1329,6 +1047,16 @@ namespace CustomLineBreak
 				}
 				if (charsToDelete > 0) {
 					edit.Delete(line.Extent.Start, charsToDelete);
+				}
+				if (accumulatedSpace > IndentSize) {
+				    int lineIndentEndPos = -1;
+    				for (lineIndentEndPos = line.Extent.Start; lineIndentEndPos < end; ++lineIndentEndPos) {
+    					char c = buf[lineIndentEndPos];
+    					if (!char.IsWhiteSpace(c)) {
+    					    break;
+    					}
+    				}
+    				edit.Insert(lineIndentEndPos, new string(' ', accumulatedSpace - IndentSize));
 				}
 			}
 			edit.Apply();
