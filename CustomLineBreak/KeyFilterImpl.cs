@@ -968,11 +968,10 @@ namespace CustomLineBreak
 			if (noEditAccessOrHasBoxSelection()) return false;
 			string indent;
 			ITextEdit edit;
-			ITextSnapshot buf;
+			ITextSnapshot buf = TextView.TextSnapshot;
 			if (TextView.Selection.IsEmpty) {
 			    indent = calculateIndent();
     			edit = TextView.TextBuffer.CreateEdit();
-    			buf = TextView.TextSnapshot;
 				edit.Insert(TextView.Caret.Position.BufferPosition, indent);
     			edit.Apply();
     			return true;
@@ -998,7 +997,11 @@ namespace CustomLineBreak
 			int caretLineNum = TextView.Caret.Position.BufferPosition.GetContainingLineNumber();
 			for (int i = lineStart; i <= lineEnd; ++i) {
 				ITextSnapshotLine line = buf.GetLineFromLineNumber(i);
-				edit.Insert(line.Extent.Start, indent);
+                int j = line.Extent.Start;
+                for (; j < line.Extent.End; ++j) {
+                    if (buf[j] != '\t') break;
+                }
+				edit.Insert(j, indent);
 			}
 			edit.Apply();
 			return true;
