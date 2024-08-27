@@ -77,7 +77,7 @@ namespace CustomLineBreak
 			if (e.ChangedButton == MouseButton.Left
 			        && e.ButtonState == MouseButtonState.Pressed
 			        && TextView.Selection.Mode == TextSelectionMode.Stream) {
-			    bool ctrlHeld = Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl);
+			    bool ctrlHeld = Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl) || e.ClickCount == 2;
 			    if (!ctrlHeld) return;
 			    bool shiftHeld = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
 			    SnapshotPoint selectAnchor = TextView.Selection.AnchorPoint.Position;
