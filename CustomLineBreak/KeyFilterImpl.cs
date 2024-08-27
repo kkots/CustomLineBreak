@@ -457,31 +457,8 @@ namespace CustomLineBreak
 			}
 			return pointToIndentFrom;
 		}
-
-		private bool handleReturn() {
-			ITextEdit textEdit = null;
-			int end = 0;
-			ITextSnapshot buf = null;
-			if (noEditAccessOrHasBoxSelection()) {
-				return false;
-			}
-			SnapshotPoint point;
-			SnapshotPoint pointEnd;
-			if (TextView.Selection.IsEmpty) {
-				point = TextView.Caret.Position.BufferPosition;
-				pointEnd = point;
-			} else if (TextView.Selection.IsReversed) {
-				point = TextView.Selection.ActivePoint.Position;
-				pointEnd = TextView.Selection.AnchorPoint.Position;
-			} else {
-				point = TextView.Selection.AnchorPoint.Position;
-				pointEnd = TextView.Selection.ActivePoint.Position;
-			}
-			ITextSnapshotLine pointLine = point.GetContainingLine();
-			LineCharCollection lineChars = new LineCharCollection(classifier,
-				new SnapshotSpan(TextView.TextSnapshot,
-					pointLine.Start,
-					point.Position - pointLine.Start));
+		// Returns the position of the opening brace
+		SnapshotPoint lineEndsWithUnclosedBrace(LineCharCollection lineChars) {
 		    SnapshotPoint bracePosition = new SnapshotPoint();
 		    IList<BracketType> bracketStack = new List<BracketType>();
 			foreach (LineCharElement lineChar in lineChars) {
@@ -506,73 +483,221 @@ namespace CustomLineBreak
 					collapseUntilLastBracketOfType(bracketStack, BracketType.ROUND);
 				}
 			}
-			buf = TextView.TextSnapshot;
-			if (bracketStack.Count > 0 && bracePosition.Snapshot != null) {
-				SnapshotPoint pointToIndentFrom = getIndentOriginOfOpeningBrace(bracePosition);
-				ITextSnapshotLine indentOriginLine = pointToIndentFrom.GetContainingLine();
-				end = pointToIndentFrom.Position;
-				for (int i = indentOriginLine.Start.Position; i < end; ++i) {
-				    char c = buf[i];
-				    if (char.IsWhiteSpace(c)) {
-					    // whitespace
-					    continue;
-				    }
-				    end = i;
-				    break;
-			    }
-			    textEdit = TextView.TextBuffer.CreateEdit();
-			    if (!TextView.Selection.IsEmpty) {
-				    textEdit.Delete(TextView.Selection.SelectedSpans[0]);
-			    }
-			    if (end > indentOriginLine.Start.Position) {
-				    string indent;
-				    if (ConvertTabsToSpaces || IndentSize % TabSize != 0) {
-					    indent = new string(' ', IndentSize);
-			        } else {
-				        indent = new string('\t', IndentSize / TabSize);
-			        }
-	                textEdit.Insert(pointEnd, "\n"
-				        + buf.GetText(new Span(indentOriginLine.Start.Position,
-				        end - indentOriginLine.Start.Position)) + indent);
+			if (bracketStack.Count > 0) {
+			    return bracePosition;
+			} else {
+			    return new SnapshotPoint();
+			}
+		}
+		
+		// Returns position of the end of previous statement
+		SnapshotPoint findPreviousStatementEnd(SnapshotPoint thisStatementSemicolonPos) {
+		    IList<BracketType> bracketStack = new List<BracketType>();
+		    bool isFirstLine = true;
+		    int lineNumber = thisStatementSemicolonPos.GetContainingLineNumber() + 1;
+		    ITextSnapshot buf = thisStatementSemicolonPos.Snapshot;
+            bool encounteredAnything = false;
+		    while (lineNumber > 0) {
+		        bool isFirstLineCurrent = isFirstLine;
+		        isFirstLine = false;
+		        --lineNumber;
+		        ITextSnapshotLine line;
+		        LineCharCollection lineChars;
+		        if (isFirstLineCurrent) {
+		            line = thisStatementSemicolonPos.GetContainingLine();
+			        lineChars = new LineCharCollection(classifier,
+				        new SnapshotSpan(buf,
+					        line.Start,
+					        thisStatementSemicolonPos.Position - line.Start));
 		        } else {
-			        string indent;
-				    if (ConvertTabsToSpaces || IndentSize % TabSize != 0) {
-					    indent = new string(' ', IndentSize);
-				    } else {
-					    indent = new string('\t', IndentSize / TabSize);
+		            line = buf.GetLineFromLineNumber(lineNumber);
+		            lineChars = new LineCharCollection(classifier, line.Extent);
+                }
+                for (int i = lineChars.Count - 1; i >= 0; --i) {
+		            LineCharElement lineChar = lineChars[i];
+		            char c = lineChar.c;
+		            bool isWhitespace = char.IsWhiteSpace(c);
+		            if (!lineChar.isComment && !lineChar.isString && !isWhitespace) {
+		                if (bracketStack.Count == 0 && (c == ';' || c == ':' && i > 0 && lineChars[i - 1].c != ':')) {
+		                    return lineChar.point;
+		                }
+				        if (c == '{') {
+					        if (bracketStack.Count == 0) return lineChar.point;
+					        collapseUntilLastBracketOfType(bracketStack, BracketType.CURLY);
+				        } else if (c == '[') {
+					        if (bracketStack.Count == 0) return lineChar.point;
+					        collapseUntilLastBracketOfType(bracketStack, BracketType.SQUARE);
+				        } else if (c == '(') {
+					        if (bracketStack.Count == 0) return lineChar.point;
+					        collapseUntilLastBracketOfType(bracketStack, BracketType.ROUND);
+				        } else if (c == '}') {
+				            if (isFirstLineCurrent && !encounteredAnything) {
+				                bracketStack.Add(BracketType.CURLY);
+				            } else {
+				                return lineChar.point;
+				            }
+				        } else if (c == ']') {
+					        bracketStack.Add(BracketType.SQUARE);
+				        } else if (c == ')') {
+					        bracketStack.Add(BracketType.ROUND);
+				        }
+				        if (c == ':' && i > 0 && lineChars[i - 1].c == ':') --i;
 		            }
-	                textEdit.Insert(pointEnd, "\n" + indent);
-	            }
-	            textEdit.Apply();
-	            if (!TextView.Selection.IsEmpty) {
-		            TextView.Selection.Clear();
-	            }
-	            TextView.Caret.EnsureVisible();
-                return true;
-            }
-            textEdit = TextView.TextBuffer.CreateEdit();
+		            if (!encounteredAnything && !lineChar.isComment && !isWhitespace) encounteredAnything = true;
+                }
+		    }
+		    return new SnapshotPoint();
+		}
+		private string generateNewIndent() {
+			if (ConvertTabsToSpaces || IndentSize % TabSize != 0) {
+				return new string(' ', IndentSize);
+			} else {
+				return new string('\t', IndentSize / TabSize);
+			}
+		}
+		private string getIndentOfLineUntilPoint(ITextSnapshotLine line, SnapshotPoint point) {
+			int end = point.Position;
+			ITextSnapshot buf = TextView.TextSnapshot;
+			for (int i = line.Start.Position; i < end; ++i) {
+				char c = buf[i];
+				if (char.IsWhiteSpace(c)) {
+					// whitespace
+					continue;
+				}
+				end = i;
+				break;
+			}
+			if (end > line.Start.Position) {
+				return buf.GetText(new Span(line.Start.Position,
+					end - line.Start.Position));
+			} else {
+				return "";
+			}
+		}
+		private string getIndentOfLineUntilPoint(SnapshotPoint point) {
+			ITextSnapshotLine line = point.GetContainingLine();
+			return getIndentOfLineUntilPoint(line, point);
+		}
+		/// <summary>
+		/// This function requires a valid opening brace ({, ( or [) position to be provded in -bracePosition-.
+        /// First off, it deletes the current selection of the Text View. Then, inserts a newline ("\n"),
+        /// at the caret position. Then, calculates the needed indent based on the provided opening brace,
+        /// and inserts that.
+        /// </summary>
+        /// <param name="bracePosition">Position of the opening brace to indent from. Newline will be inserted
+        /// at the position of the caret.</param>
+		private void insertNewLineWithIndentCalculatedFromUnclosedBrace(SnapshotPoint bracePosition) {
+		    SnapshotPoint pointToIndentFrom = getIndentOriginOfOpeningBrace(bracePosition);
+			string indent = getIndentOfLineUntilPoint(pointToIndentFrom);
+			replaceSelectionWithText("\n" + indent + generateNewIndent());
+		}
+		private void replaceSelectionWithText(string newText) {
+			SnapshotPoint pointEnd;
+			if (TextView.Selection.IsEmpty) {
+				pointEnd = TextView.Caret.Position.BufferPosition;
+			} else if (TextView.Selection.IsReversed) {
+				pointEnd = TextView.Selection.AnchorPoint.Position;
+			} else {
+				pointEnd = TextView.Selection.ActivePoint.Position;
+			}
+			ITextEdit textEdit = TextView.TextBuffer.CreateEdit();
 			if (!TextView.Selection.IsEmpty) {
 				textEdit.Delete(TextView.Selection.SelectedSpans[0]);
-		    }
-	        int whitespaceEnd = 0;
-			end = pointLine.End.Position;
-			for (int i = pointLine.Start.Position; i < end; ++i) {
-				if (buf[i] > 32) {
-                    break;
-                }
-	            whitespaceEnd = i + 1;
 			}
-			if (whitespaceEnd > pointLine.Start.Position) {
-				textEdit.Insert(pointEnd, "\n" + buf.GetText(new Span(pointLine.Start.Position,
-					whitespaceEnd - pointLine.Start.Position)));
-	        } else {
-	            textEdit.Insert(pointEnd, "\n");
-			}
+			textEdit.Insert(pointEnd, newText);
 			textEdit.Apply();
 			if (!TextView.Selection.IsEmpty) {
 				TextView.Selection.Clear();
 			}
 			TextView.Caret.EnsureVisible();
+		}
+		private SnapshotPoint findNextStatementStart(SnapshotPoint prevStatementEnd) {
+		    bool isFirstLine = true;
+		    int lineNumber = prevStatementEnd.GetContainingLineNumber() - 1;
+		    ITextSnapshot buf = prevStatementEnd.Snapshot;
+		    while (lineNumber < buf.LineCount - 1) {
+		        ++lineNumber;
+		        ITextSnapshotLine line;
+		        LineCharCollection lineChars;
+		        if (isFirstLine) {
+		            line = prevStatementEnd.GetContainingLine();
+			        lineChars = new LineCharCollection(classifier,
+				        new SnapshotSpan(buf,
+					        prevStatementEnd.Position + 1,
+					        line.End - prevStatementEnd.Position - 1));
+			        isFirstLine = false;
+		        } else {
+		            line = buf.GetLineFromLineNumber(lineNumber);
+		            lineChars = new LineCharCollection(classifier, line.Extent);
+                }
+                foreach (LineCharElement lineChar in lineChars) {
+		            if (lineChar.isComment || char.IsWhiteSpace(lineChar.c)) continue;
+		            return lineChar.point;
+                }
+		    }
+		    return new SnapshotPoint();
+		}
+		private bool handleReturn() {
+			ITextSnapshot buf = null;
+			if (noEditAccessOrHasBoxSelection()) {
+				return false;
+			}
+			SnapshotPoint point;
+			SnapshotPoint pointEnd;
+			if (TextView.Selection.IsEmpty) {
+				point = TextView.Caret.Position.BufferPosition;
+				pointEnd = point;
+			} else if (TextView.Selection.IsReversed) {
+				point = TextView.Selection.ActivePoint.Position;
+				pointEnd = TextView.Selection.AnchorPoint.Position;
+			} else {
+				point = TextView.Selection.AnchorPoint.Position;
+				pointEnd = TextView.Selection.ActivePoint.Position;
+			}
+			ITextSnapshotLine pointLine = point.GetContainingLine();
+			LineCharCollection lineChars = new LineCharCollection(classifier,
+				new SnapshotSpan(TextView.TextSnapshot,
+					pointLine.Start,
+					point.Position - pointLine.Start));
+			SnapshotPoint bracePosition = lineEndsWithUnclosedBrace(lineChars);
+			buf = TextView.TextSnapshot;
+			if (bracePosition.Snapshot != null) {
+				insertNewLineWithIndentCalculatedFromUnclosedBrace(bracePosition);
+				return true;
+			}
+			SnapshotPoint semicolonPos = new SnapshotPoint();
+			bool lastIsSemicolon = false;
+			foreach (LineCharElement lineChar in lineChars) {
+			    if (lineChar.isComment || char.IsWhiteSpace(lineChar.c)) continue;
+			    lastIsSemicolon = lineChar.c == ';';
+			    if (lastIsSemicolon) {
+			        semicolonPos = lineChar.point;
+			    }
+			}
+			if (lastIsSemicolon) {
+			    SnapshotPoint prevStatementEnd = findPreviousStatementEnd(semicolonPos);
+			    if (prevStatementEnd.Snapshot != null) {
+			        if (prevStatementEnd.GetContainingLineNumber() == pointLine.LineNumber) {
+			            lineChars = new LineCharCollection(classifier,
+				            new SnapshotSpan(buf,
+					            pointLine.Start,
+					            prevStatementEnd.Position - pointLine.Start + 1));
+			        } else {
+			            lineChars = new LineCharCollection(classifier, prevStatementEnd.GetContainingLine().Extent);
+			        }
+			        bracePosition = lineEndsWithUnclosedBrace(lineChars);
+			        if (bracePosition.Snapshot != null) {
+			            insertNewLineWithIndentCalculatedFromUnclosedBrace(bracePosition);
+			            return true;
+			        }
+			        SnapshotPoint statementStart = findNextStatementStart(prevStatementEnd);
+			        if (statementStart.Snapshot != null) {
+			            replaceSelectionWithText("\n" + getIndentOfLineUntilPoint(statementStart));
+			            return true;
+			        }
+			    }
+			}
+			replaceSelectionWithText("\n" + getIndentOfLineUntilPoint(pointLine, pointLine.End));
 			return true;
 		}
 		private void handleTypeClosingBrace(char typedChar) {
