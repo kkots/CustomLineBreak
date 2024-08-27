@@ -637,6 +637,46 @@ namespace CustomLineBreak
 		    }
 		    return new SnapshotPoint();
 		}
+		private bool lineStartsWithTripleSlashUpToPoint(ITextSnapshotLine line, SnapshotPoint point) {
+		    ITextSnapshot buf = TextView.TextSnapshot;
+		    int end = point.Position;
+		    for (int i = line.Extent.Start; i < end; ++i) {
+		        char c = buf[i];
+		        if (char.IsWhiteSpace(c)) continue;
+		        if (c == '/' && i < end - 1 && buf[i + 1] == '/' && i < end - 2 && buf[i + 2] == '/') {
+		            return true;
+		        }
+		        return false;
+		    }
+	        return false;
+		}
+		private string getWhitespaceAfterTripleSlashUpToPoint(ITextSnapshotLine line, SnapshotPoint point) {
+		    ITextSnapshot buf = TextView.TextSnapshot;
+		    int end = point.Position;
+		    for (int i = line.Extent.Start; i < end; ++i) {
+		        char c = buf[i];
+		        if (char.IsWhiteSpace(c)) continue;
+		        if (c == '/' && i < end - 1 && buf[i + 1] == '/' && i < end - 2 && buf[i + 2] == '/') {
+		            i += 3;
+		            int whitespaceStart = i;
+		            int whitespaceEnd = i;
+		            for (int j = i; j < end; ++j) {
+		                c = buf[j];
+		                if (!char.IsWhiteSpace(c)) {
+		                    whitespaceEnd = j;
+		                    break;
+		                }
+		            }
+		            if (whitespaceEnd != whitespaceStart) {
+		                return buf.GetText(whitespaceStart, whitespaceEnd - whitespaceStart);
+		            }
+		            return "";
+		        }
+		        return "";
+		    }
+	        return "";
+		}
+		
 		private bool handleReturn() {
 			ITextSnapshot buf = null;
 			if (noEditAccessOrHasBoxSelection()) {
@@ -696,6 +736,10 @@ namespace CustomLineBreak
 			            return true;
 			        }
 			    }
+			}
+			if (lineStartsWithTripleSlashUpToPoint(pointLine, point)) {
+			    replaceSelectionWithText("\n" + getIndentOfLineUntilPoint(pointLine, pointLine.End) + "///" + getWhitespaceAfterTripleSlashUpToPoint(pointLine, point));
+			    return true;
 			}
 			replaceSelectionWithText("\n" + getIndentOfLineUntilPoint(pointLine, pointLine.End));
 			return true;
