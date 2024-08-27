@@ -86,7 +86,7 @@ namespace CustomLineBreak
 					newElem.classificationType = classificationType;
 					newElem.isKeyword = classificationType.IsOfType("keyword");
 					newElem.isIdentifier = classificationType.IsOfType("identifier");
-					newElem.isComment = classificationType.IsOfType("comment");
+					newElem.isComment = classificationType.IsOfType("comment") || classificationType.IsOfType("XML Doc Comment");
 					newElem.isOperator = classificationType.IsOfType("operator");
 					newElem.isString = classificationType.IsOfType("string");
 					newElem.isStringDelimiter = classificationType.IsOfType("cppStringDelimiterCharacter");

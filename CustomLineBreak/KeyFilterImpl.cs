@@ -3,19 +3,13 @@ using Microsoft.VisualStudio.OLE.Interop;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
-using Microsoft.VisualStudio.TextManager.Interop;
 using Microsoft.VisualStudio.Text.Classification;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using IServiceProvider = System.IServiceProvider;
 using Microsoft.VisualStudio.Language.Intellisense;
-using Microsoft.VisualStudio.Text.Operations;
 using Microsoft.VisualStudio.Text.Formatting;
-using System.Windows.Forms;
-using System.Management.Instrumentation;
-using System.Windows.Media.TextFormatting;
-using System.Windows.Input;
 
 namespace CustomLineBreak
 {
@@ -251,7 +245,11 @@ namespace CustomLineBreak
 			char brace = buf[pos];
 			return findClosingParenthesis(point, brace);
 		}
-
+        
+        private bool isComment(IClassificationType type) {
+            return type.IsOfType("comment") || type.IsOfType("XML Doc Comment");
+        }
+        
 		private SnapshotPoint findClosingParenthesisToTheLeftFromHere(SnapshotPoint point) {
 			int pos = point.Position;
 			if (pos == 0) return new SnapshotPoint();
@@ -288,7 +286,7 @@ namespace CustomLineBreak
 						char prevC = buf[pos];
 						if (prevC == '*') {
 							IClassificationType type = getClassOfChar(new SnapshotPoint(buf, pos));
-							if (type != null && type.IsOfType("comment")) {
+							if (type != null && isComment(type)) {
 								insideMultilineComment = true;
 								--pos;
 								continue;
@@ -298,7 +296,7 @@ namespace CustomLineBreak
 					if (potentiallyInsideMultilineComment) {
 						potentiallyInsideMultilineComment = false;
 						IClassificationType type = getClassOfChar(new SnapshotPoint(buf, pos));
-						insideMultilineComment = type != null && type.IsOfType("comment");
+						insideMultilineComment = type != null && isComment(type);
 					}
 					if (insideMultilineComment) continue;
 					if (c == ')' || c == ']') return new SnapshotPoint(buf, pos + 1);
@@ -484,8 +482,8 @@ namespace CustomLineBreak
 				new SnapshotSpan(TextView.TextSnapshot,
 					pointLine.Start,
 					point.Position - pointLine.Start));
-			SnapshotPoint bracePosition = new SnapshotPoint();
-			IList<BracketType> bracketStack = new List<BracketType>();
+		    SnapshotPoint bracePosition = new SnapshotPoint();
+		    IList<BracketType> bracketStack = new List<BracketType>();
 			foreach (LineCharElement lineChar in lineChars) {
 				if (lineChar.isComment || lineChar.isString || char.IsWhiteSpace(lineChar.c)) {
 					continue;
@@ -514,61 +512,61 @@ namespace CustomLineBreak
 				ITextSnapshotLine indentOriginLine = pointToIndentFrom.GetContainingLine();
 				end = pointToIndentFrom.Position;
 				for (int i = indentOriginLine.Start.Position; i < end; ++i) {
-					char c = buf[i];
-					if (c <= 32) {
-						// whitespace
-						continue;
-					}
-					end = i;
-					break;
-				}
-				textEdit = TextView.TextBuffer.CreateEdit();
-				if (!TextView.Selection.IsEmpty) {
-					textEdit.Delete(TextView.Selection.SelectedSpans[0]);
-				}
-				if (end > indentOriginLine.Start.Position) {
-					string indent;
-					if (ConvertTabsToSpaces || IndentSize % TabSize != 0) {
-						indent = new string(' ', IndentSize);
-					} else {
-						indent = new string('\t', IndentSize / TabSize);
-					}
-					textEdit.Insert(pointEnd, "\n"
-						+ buf.GetText(new Span(indentOriginLine.Start.Position,
-						end - indentOriginLine.Start.Position)) + indent);
-				} else {
-					string indent;
-					if (ConvertTabsToSpaces || IndentSize % TabSize != 0) {
-						indent = new string(' ', IndentSize);
-					} else {
-						indent = new string('\t', IndentSize / TabSize);
-					}
-					textEdit.Insert(pointEnd, "\n" + indent);
-				}
-				textEdit.Apply();
-				if (!TextView.Selection.IsEmpty) {
-					TextView.Selection.Clear();
-				}
-				TextView.Caret.EnsureVisible();
-				return true;
-			}
-			textEdit = TextView.TextBuffer.CreateEdit();
+				    char c = buf[i];
+				    if (char.IsWhiteSpace(c)) {
+					    // whitespace
+					    continue;
+				    }
+				    end = i;
+				    break;
+			    }
+			    textEdit = TextView.TextBuffer.CreateEdit();
+			    if (!TextView.Selection.IsEmpty) {
+				    textEdit.Delete(TextView.Selection.SelectedSpans[0]);
+			    }
+			    if (end > indentOriginLine.Start.Position) {
+				    string indent;
+				    if (ConvertTabsToSpaces || IndentSize % TabSize != 0) {
+					    indent = new string(' ', IndentSize);
+			        } else {
+				        indent = new string('\t', IndentSize / TabSize);
+			        }
+	                textEdit.Insert(pointEnd, "\n"
+				        + buf.GetText(new Span(indentOriginLine.Start.Position,
+				        end - indentOriginLine.Start.Position)) + indent);
+		        } else {
+			        string indent;
+				    if (ConvertTabsToSpaces || IndentSize % TabSize != 0) {
+					    indent = new string(' ', IndentSize);
+				    } else {
+					    indent = new string('\t', IndentSize / TabSize);
+		            }
+	                textEdit.Insert(pointEnd, "\n" + indent);
+	            }
+	            textEdit.Apply();
+	            if (!TextView.Selection.IsEmpty) {
+		            TextView.Selection.Clear();
+	            }
+	            TextView.Caret.EnsureVisible();
+                return true;
+            }
+            textEdit = TextView.TextBuffer.CreateEdit();
 			if (!TextView.Selection.IsEmpty) {
 				textEdit.Delete(TextView.Selection.SelectedSpans[0]);
-			}
-			int whitespaceEnd = 0;
+		    }
+	        int whitespaceEnd = 0;
 			end = pointLine.End.Position;
 			for (int i = pointLine.Start.Position; i < end; ++i) {
 				if (buf[i] > 32) {
-					break;
-				}
-				whitespaceEnd = i + 1;
+                    break;
+                }
+	            whitespaceEnd = i + 1;
 			}
 			if (whitespaceEnd > pointLine.Start.Position) {
 				textEdit.Insert(pointEnd, "\n" + buf.GetText(new Span(pointLine.Start.Position,
 					whitespaceEnd - pointLine.Start.Position)));
-			} else {
-				textEdit.Insert(pointEnd, "\n");
+	        } else {
+	            textEdit.Insert(pointEnd, "\n");
 			}
 			textEdit.Apply();
 			if (!TextView.Selection.IsEmpty) {
@@ -595,7 +593,7 @@ namespace CustomLineBreak
 			}
 			ITextSnapshotLine pointLine = point.GetContainingLine();
 			IClassificationType type = getClassOfChar(point);
-			if (type != null && type.IsOfType("comment")) {
+			if (type != null && isComment(type)) {
 				return;
 			}
 
@@ -851,7 +849,7 @@ namespace CustomLineBreak
 			}
 			if (!foundPoint) return false;
 			type = getClassOfChar(point);
-			if (type != null && type.IsOfType("comment")) {
+			if (type != null && isComment(type)) {
 				return false;
 			}
 			c = buf[pos];
