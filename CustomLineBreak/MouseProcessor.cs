@@ -73,6 +73,9 @@ namespace CustomLineBreak
         }
 		public override void PreprocessMouseLeftButtonDown(MouseButtonEventArgs e)
         {
+            string ContentTypeName = TextView.TextSnapshot.ContentType.TypeName;
+            if (ContentTypeName == "BuildOutput") return;
+            
             dragging = false;
 			if (e.ChangedButton == MouseButton.Left
 			        && e.ButtonState == MouseButtonState.Pressed
@@ -144,6 +147,9 @@ namespace CustomLineBreak
             }*/
         }
         public override void PreprocessMouseMove(MouseEventArgs e) {
+            string ContentTypeName = TextView.TextSnapshot.ContentType.TypeName;
+            if (ContentTypeName == "BuildOutput") return;
+            
             if (!dragging) return;
             if (e.LeftButton == MouseButtonState.Released) {
                 dragging = false;
