@@ -16,6 +16,7 @@ namespace CustomLineBreak
 	internal class KeyFilterImpl : KeyFilter
 	{
 		private IClassifier classifier;
+	    private EnvDTE.DTE dte;
 
 		public KeyFilterImpl(
 				ICompletionBroker completionBroker,
@@ -24,9 +25,11 @@ namespace CustomLineBreak
 				IAsyncQuickInfoBroker quickInfoBroker,
 				IClassifier classifier,
 				IWpfTextView textView,
+				EnvDTE.DTE dte,
 				IServiceProvider provider)
 			: base(completionBroker, signatureHelpBroker, smartTagBroker, quickInfoBroker, textView, provider)
 		{
+		    this.dte = dte;
 			this.classifier = classifier;
 		}
 
@@ -321,17 +324,24 @@ namespace CustomLineBreak
 			}
 			return new SnapshotPoint();
 		}
+		private string getNameExtension(string name) {
+		    int index = name.LastIndexOf('.');
+		    if (index == -1) return string.Empty;
+		    return name.Substring(index + 1);
+		}
 		public override int Exec(ref Guid pguidCmdGroup, uint nCmdID, uint nCmdexecopt, IntPtr pvaIn, IntPtr pvaOut)
 		{
 			ThreadHelper.ThrowIfNotOnUIThread();
 			string ContentTypeName = TextView.TextSnapshot.ContentType.TypeName;
+			string nameExt = getNameExtension(dte.ActiveDocument.Name).ToUpper();
 			bool isCpp = ContentTypeName == "C/C++"
 				|| ContentTypeName == "CSharp"
 				|| ContentTypeName == "code++.Java"
-				|| ContentTypeName == "JSON";
+				|| ContentTypeName == "JSON"
+				|| nameExt == "RON";
 			// Enter key
-			if (pguidCmdGroup == VSConstants.VSStd2K && nCmdID == (uint)VSConstants.VSStd2KCmdID.RETURN && isCpp && canPerform()) {
-				bool handled = handleReturn();
+			if (pguidCmdGroup == VSConstants.VSStd2K && nCmdID == (uint)VSConstants.VSStd2KCmdID.RETURN && canPerform()) {
+				bool handled = handleReturn(isCpp);
 				if (handled) return VSConstants.S_OK;
 				return NextTarget.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
 			}
@@ -677,7 +687,7 @@ namespace CustomLineBreak
 	        return "";
 		}
 		
-		private bool handleReturn() {
+		private bool handleReturn(bool isCpp) {
 			ITextSnapshot buf = null;
 			if (noEditAccessOrHasBoxSelection()) {
 				return false;
@@ -695,11 +705,15 @@ namespace CustomLineBreak
 				pointEnd = TextView.Selection.ActivePoint.Position;
 			}
 			ITextSnapshotLine pointLine = point.GetContainingLine();
-			LineCharCollection lineChars = new LineCharCollection(classifier,
-				new SnapshotSpan(TextView.TextSnapshot,
-					pointLine.Start,
-					point.Position - pointLine.Start));
-			SnapshotPoint bracePosition = lineEndsWithUnclosedBrace(lineChars);
+			LineCharCollection lineChars = null;
+			SnapshotPoint bracePosition = new SnapshotPoint();
+			if (isCpp) {
+			    lineChars = new LineCharCollection(classifier,
+				    new SnapshotSpan(TextView.TextSnapshot,
+					    pointLine.Start,
+					    point.Position - pointLine.Start));
+			    bracePosition = lineEndsWithUnclosedBrace(lineChars);
+			}
 			buf = TextView.TextSnapshot;
 			if (bracePosition.Snapshot != null) {
 				insertNewLineWithIndentCalculatedFromUnclosedBrace(bracePosition);
@@ -707,11 +721,13 @@ namespace CustomLineBreak
 			}
 			SnapshotPoint semicolonPos = new SnapshotPoint();
 			bool lastIsSemicolon = false;
-			foreach (LineCharElement lineChar in lineChars) {
-			    if (lineChar.isComment || char.IsWhiteSpace(lineChar.c)) continue;
-			    lastIsSemicolon = lineChar.c == ';';
-			    if (lastIsSemicolon) {
-			        semicolonPos = lineChar.point;
+			if (isCpp) {
+			    foreach (LineCharElement lineChar in lineChars) {
+			        if (lineChar.isComment || char.IsWhiteSpace(lineChar.c)) continue;
+			        lastIsSemicolon = lineChar.c == ';';
+			        if (lastIsSemicolon) {
+			            semicolonPos = lineChar.point;
+			        }
 			    }
 			}
 			if (lastIsSemicolon) {
@@ -737,7 +753,7 @@ namespace CustomLineBreak
 			        }
 			    }
 			}
-			if (lineStartsWithTripleSlashUpToPoint(pointLine, point)) {
+			if (isCpp && lineStartsWithTripleSlashUpToPoint(pointLine, point)) {
 			    replaceSelectionWithText("\n" + getIndentOfLineUntilPoint(pointLine, pointLine.End) + "///" + getWhitespaceAfterTripleSlashUpToPoint(pointLine, point));
 			    return true;
 			}

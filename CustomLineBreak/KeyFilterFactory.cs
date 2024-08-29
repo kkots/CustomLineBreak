@@ -2,16 +2,12 @@
 using Microsoft.VisualStudio.Editor;
 using Microsoft.VisualStudio.Language.Intellisense;
 using Microsoft.VisualStudio.OLE.Interop;
-using Microsoft.VisualStudio.Package;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Text.Editor;
-using Microsoft.VisualStudio.Text.Operations;
 using Microsoft.VisualStudio.TextManager.Interop;
 using Microsoft.VisualStudio.Utilities;
-using System;
 using System.ComponentModel.Composition;
-using System.Runtime.InteropServices;
 
 namespace CustomLineBreak
 {
@@ -54,7 +50,10 @@ namespace CustomLineBreak
 				return;
 
 			IClassifier classifier = classifierAggregatorService.GetClassifier(view.TextBuffer);
-
+            
+			ThreadHelper.ThrowIfNotOnUIThread();
+            EnvDTE.DTE dte = serviceProvider.GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+            
 			AddCommandFilter(viewAdapter, new KeyFilterImpl(
 				completionBroker,
 				signatureHelpBroker,
@@ -62,6 +61,7 @@ namespace CustomLineBreak
 				quickInfoBroker,
 				classifier,
 				view,
+				dte,
 				serviceProvider));
 		}
 
@@ -76,8 +76,6 @@ namespace CustomLineBreak
 			//you'll need the next target for Exec and QueryStatus
 			if (next != null)
 				commandFilter.NextTarget = next;
-		}
-		public void SelectionChangedHandler(object sender, EventArgs e) {
 		}
 	}
 }
