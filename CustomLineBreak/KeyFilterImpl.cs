@@ -20,14 +20,12 @@ namespace CustomLineBreak
 
 		public KeyFilterImpl(
 				ICompletionBroker completionBroker,
-				ISignatureHelpBroker signatureHelpBroker,
 				ILightBulbBroker smartTagBroker,
-				IAsyncQuickInfoBroker quickInfoBroker,
 				IClassifier classifier,
 				IWpfTextView textView,
 				EnvDTE.DTE dte,
 				IServiceProvider provider)
-			: base(completionBroker, signatureHelpBroker, smartTagBroker, quickInfoBroker, textView, provider)
+			: base(completionBroker, smartTagBroker, textView, provider)
 		{
 		    this.dte = dte;
 			this.classifier = classifier;
@@ -40,8 +38,7 @@ namespace CustomLineBreak
 
 		private Boolean canPerform() {
 			return !IsInAutomationFunction
-				&& !IsCompletionActive
-				&& !IsSignatureHelpActive;
+				&& !IsCompletionActive;
 		}
 
 		private IClassificationType getClassOfChar(SnapshotPoint point) {

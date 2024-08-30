@@ -26,21 +26,15 @@ namespace CustomLineBreak
 		private IClassifierAggregatorService classifierAggregatorService;
 		
 		private ICompletionBroker completionBroker;
-		private ISignatureHelpBroker signatureHelpBroker;
 		private ILightBulbBroker smartTagBroker;
-		private IAsyncQuickInfoBroker quickInfoBroker;
 
 		[ImportingConstructor]
 		internal KeyFilterFactory(
 			ICompletionBroker completionBroker,
-			ISignatureHelpBroker signatureHelpBroker,
-			ILightBulbBroker smartTagBroker,
-			IAsyncQuickInfoBroker quickInfoBroker)
+			ILightBulbBroker smartTagBroker)
 		{
 			this.completionBroker = completionBroker;
-			this.signatureHelpBroker = signatureHelpBroker;
 			this.smartTagBroker = smartTagBroker;
-			this.quickInfoBroker = quickInfoBroker;
 		}
 
 		public void VsTextViewCreated(IVsTextView viewAdapter)
@@ -56,9 +50,7 @@ namespace CustomLineBreak
             
 			AddCommandFilter(viewAdapter, new KeyFilterImpl(
 				completionBroker,
-				signatureHelpBroker,
 				smartTagBroker,
-				quickInfoBroker,
 				classifier,
 				view,
 				dte,

@@ -16,9 +16,7 @@ namespace CustomLineBreak
 
 		private IServiceProvider serviceProvider = null;
 		public ICompletionBroker completionBroker;
-		public ISignatureHelpBroker signatureHelpBroker;
 		public ILightBulbBroker smartTagBroker;
-		public IAsyncQuickInfoBroker quickInfoBroker;
 
 		#region Computed Properties
 
@@ -110,34 +108,20 @@ namespace CustomLineBreak
 		{
 			get { return completionBroker != null ? completionBroker.IsCompletionActive(this.TextView) : false; }
 		}
-
-		internal bool IsSignatureHelpActive
-		{
-			get { return signatureHelpBroker != null ? signatureHelpBroker.IsSignatureHelpActive(this.TextView) : false; }
-		}
-
+		
 		internal bool IsSmartTagSessionActive
 		{
 			get { return smartTagBroker != null ? smartTagBroker.IsLightBulbSessionActive(this.TextView) : false; }
 		}
-
-		internal bool IsQuickInfoActive
-		{
-			get { return quickInfoBroker != null ? quickInfoBroker.IsQuickInfoActive(this.TextView) : false; }
-		}
 		public KeyFilter(
 				ICompletionBroker completionBroker,
-				ISignatureHelpBroker signatureHelpBroker,
 				ILightBulbBroker smartTagBroker,
-				IAsyncQuickInfoBroker quickInfoBroker,
 				IWpfTextView textView,
 				IServiceProvider provider)
 			: base(textView)
 		{
 			this.completionBroker = completionBroker;
-			this.signatureHelpBroker = signatureHelpBroker;
 			this.smartTagBroker = smartTagBroker;
-			this.quickInfoBroker = quickInfoBroker;
 			this.serviceProvider = provider;
 		}
 
