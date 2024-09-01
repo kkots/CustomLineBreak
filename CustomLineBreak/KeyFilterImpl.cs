@@ -538,7 +538,7 @@ namespace CustomLineBreak
 					        if (bracketStack.Count == 0) return lineChar.point;
 					        collapseUntilLastBracketOfType(bracketStack, BracketType.ROUND);
 				        } else if (c == '}') {
-				            if (isFirstLineCurrent && !encounteredAnything) {
+				            if (isFirstLineCurrent && !encounteredAnything || bracketStack.Count > 0) {
 				                bracketStack.Add(BracketType.CURLY);
 				            } else {
 				                return lineChar.point;
