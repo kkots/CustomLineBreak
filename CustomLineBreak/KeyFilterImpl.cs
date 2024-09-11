@@ -42,6 +42,7 @@ namespace CustomLineBreak
 		}
 
 		private IClassificationType getClassOfChar(SnapshotPoint point) {
+			if (point.Position >= point.Snapshot.Length) return null;
 			IList<ClassificationSpan> classificationSpans = classifier.GetClassificationSpans(new SnapshotSpan(point, 1));
 			if (classificationSpans.Count > 0) {
 				return classificationSpans[0].ClassificationType;
