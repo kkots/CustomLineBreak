@@ -67,11 +67,13 @@ namespace CustomLineBreak
 							break;
 						}
 						if (classificationSpan.Start.Position > i) {
+							insideSpan = false;
 							break;
 						}
 						++currentSpanIndex;
 						if (currentSpanIndex >= classificationSpans.Count) {
 							currentSpan = null;
+						    insideSpan = false;
 							break;
 						}
 						currentSpan = classificationSpans[currentSpanIndex];

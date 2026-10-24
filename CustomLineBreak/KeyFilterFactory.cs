@@ -18,10 +18,10 @@ namespace CustomLineBreak
 	{
 		[Import(typeof(IVsEditorAdaptersFactoryService))]
 		private IVsEditorAdaptersFactoryService editorFactory;
-
+        
 		[Import]
 		private SVsServiceProvider serviceProvider;
-
+        
 		[Import]
 		private IClassifierAggregatorService classifierAggregatorService;
 		
@@ -39,7 +39,7 @@ namespace CustomLineBreak
 
 		public void VsTextViewCreated(IVsTextView viewAdapter)
 		{
-			var view = editorFactory.GetWpfTextView(viewAdapter);
+			IWpfTextView view = editorFactory.GetWpfTextView(viewAdapter);
 			if (view == null)
 				return;
 
